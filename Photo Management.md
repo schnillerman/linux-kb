@@ -1,4 +1,5 @@
 # Sort Photos into Subfolders by Category
+The following script organizes files in a source directory into different directories parallel to the source directory as described in the following subsections.
 ```bash
 #!/bin/bash
 
