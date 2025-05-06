@@ -96,7 +96,7 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
 done
 ```
 
-## Key Components Explained:
+## Key Components Explained
 
 1. **Interactive Inputs**  
    - Collects source directory path and optional keywords
@@ -123,7 +123,7 @@ done
    - `-print0`/`read -d ''` handles spaces in filenames
    - Case-insensitive matching for broader compatibility
 
-## Regex Patterns Explained:
+## Regex Patterns Explained
 
 | Pattern          | Purpose                                      | Example Matches              |
 |------------------|----------------------------------------------|-------------------------------|
