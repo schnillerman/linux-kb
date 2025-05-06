@@ -34,7 +34,7 @@ fi
 parent_dir=$(dirname "$source_dir")
 original_dir=$(basename "$source_dir")
 whatsapp_pattern="^.*(IMG|VID)-[0-9]{8}-WA[0-9]{4}.*\.(jpg|jpeg|png|mp4|mov)$"
-uuid_pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\..+$"
+uuid_pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*\..+$"
 camera_pattern=".*(_?)(dsc|img|pxl|dji|gopr|movi|dscf|ndvr|pano|rsc)(_?)[0-9]+.*"
 snapseed_pattern="snapseed"
 
@@ -56,7 +56,7 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
     if [[ "$filename_lower" =~ $whatsapp_pattern ]]; then
         target_category="WhatsApp"
     
-    # 2) UUID detection
+    # 2) UUID detection (including files with appendices)
     elif [[ "$filename_lower" =~ $uuid_pattern ]]; then
         target_category="UUID"
     
@@ -93,7 +93,28 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
 
     target_path="${target_dir}/${relative_path}"
     mkdir -p "$(dirname "$target_path")"
-    mv -nv "$file" "$target_path"
+
+    # File move logic
+    if [[ "$target_category" == "UUID" && -f "$target_path" ]]; then
+        # UUID-specific overwrite condition
+        existing_size=$(stat -c %s "$target_path")
+        new_size=$(stat -c %s "$file")
+        threshold=$(( new_size * 115 / 100 ))  # 15% larger threshold
+        
+        if (( existing_size <= threshold )); then
+            echo "Overwriting UUID file: $relative_path (existing: $existing_size <= threshold: $threshold)"
+            mv -v "$file" "$target_path"
+        else
+            echo "Skipping UUID file: $relative_path (existing: $existing_size > threshold: $threshold)"
+        fi
+    else
+        # Default behavior: no overwrite for other categories
+        if [ -f "$target_path" ]; then
+            echo "Skipping existing file: $relative_path"
+        else
+            mv -v "$file" "$target_path"
+        fi
+    fi
 done
 ```
 
@@ -118,6 +139,7 @@ done
    - Puts `.jpeg` and `.jpg` in same category JPG
    - Skips `@eaDir` directories (Synology NAS thumbnails)
    - Preserves original folder structure
+   - Special overwrite rules for UUID category files (only overwrites UUID files if existing file ≤115% of new file size)
 
 5. **Safety Features**  
    - `-n` flag in `mv` prevents overwrites
