@@ -114,7 +114,7 @@ done
    `ParentDir/OriginalDirName - Category - (CameraPrefix) - Extension`
 
 4. **Special Handling**  
-   - Converts `.jpeg` → `.jpg` for consistency
+   - Puts `.jpeg` and `.jpg` in same category JPG
    - Skips `@eaDir` directories (Synology NAS thumbnails)
    - Preserves original folder structure
 
