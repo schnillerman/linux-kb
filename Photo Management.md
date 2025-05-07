@@ -214,7 +214,7 @@ done
 
 ## Key Components Explained
 
-1. **Interactive Inputs**  
+1. **Interactive Inputs**
    - Collects source directory path and optional keywords
    - Processes keywords into an array
 
@@ -228,17 +228,17 @@ done
    - **Snapseed**: Looks for "snapseed" in filename
    - **Custom Keywords**: User-defined patterns
 
-4. **File Organization**  
-   Creates nested directory structure:  
+4. **File Organization**
+   Creates nested directory structure:
    `ParentDir/OriginalDirName - Category - (CameraPrefix) - Extension`
 
-5. **Special Handling**  
+5. **Special Handling**
    - Puts `.jpeg` and `.jpg` in same category JPG
    - Skips `@eaDir` directories (Synology NAS thumbnails)
    - Preserves original folder structure
    - Special overwrite rules for UUID category files (only overwrites UUID files if existing file ≤115% of new file size)
 
-6. **Safety Features**  
+6. **Safety Features**
    - `-n` flag in `mv` prevents overwrites
    - `-print0`/`read -d ''` handles spaces in filenames
    - Case-insensitive matching for broader compatibility
@@ -255,77 +255,77 @@ done
 This script provides a sophisticated way to organize mixed media files while preserving metadata and directory structures.
 
 # Identify photos with non-authentic EXIF data (manipulated by, e.g., WhatsApp)
-## **What WhatsApp Does to EXIF Data**  
-1. **`DateTimeOriginal` is Overwritten**  
+## **What WhatsApp Does to EXIF Data**
+1. **`DateTimeOriginal` is Overwritten**
    WhatsApp sets this tag to the **time the file was sent or saved** on the device, *not* the original capture date.  
 
-2. **Other EXIF Tags Are Removed**  
-   - `GPS` coordinates (latitude/longitude)  
-   - `Make` (camera manufacturer)  
-   - `Model` (camera model)  
-   - `Software` (editing tools)  
+2. **Other EXIF Tags Are Removed**
+   - `GPS` coordinates (latitude/longitude)
+   - `Make` (camera manufacturer)
+   - `Model` (camera model)
+   - `Software` (editing tools)
 
 ---
 
-## **Why `exiftool -if '$datetimeoriginal'` Fails**  
-- **Manipulated files** still have the `DateTimeOriginal` tag but with **incorrect values**.  
-- The command only checks for the *presence* of the tag, not its *authenticity*.  
+## **Why `exiftool -if '$datetimeoriginal'` Fails**
+- **Manipulated files** still have the `DateTimeOriginal` tag but with **incorrect values**.
+- The command only checks for the *presence* of the tag, not its *authenticity*.
 
 ---
 
-## **Improved Method: Identifying Real vs. WhatsApp Photos**  
-### **1. Check for Missing EXIF Tags**  
-WhatsApp files typically lack camera metadata. This command lists files without `Make` or `Model` tags (suspicious for WhatsApp):  
-```bash  
-exiftool -q -if 'not defined $make or not defined $model' -r /path/to/folder  
-```  
+## **Improved Method: Identifying Real vs. WhatsApp Photos**
+### **1. Check for Missing EXIF Tags**
+WhatsApp files typically lack camera metadata. This command lists files without `Make` or `Model` tags (suspicious for WhatsApp):
+```bash
+exiftool -q -if 'not defined $make or not defined $model' -r /path/to/folder
+```
 
-### **2. Search for WhatsApp-Specific Filenames**  
-WhatsApp renames media files to the pattern `IMG-YYYYMMDD-WAXXXX.*`:  
-```bash  
-find /path/to/folder -type f -iregex ".*IMG-[0-9]{8}-WA[0-9]{4}.*"  
-```  
+### **2. Search for WhatsApp-Specific Filenames**
+WhatsApp renames media files to the pattern `IMG-YYYYMMDD-WAXXXX.*`:
+```bash
+find /path/to/folder -type f -iregex ".*IMG-[0-9]{8}-WA[0-9]{4}.*"
+```
 
-### **3. Compare `DateTimeOriginal` with Filesystem Timestamp**  
-Real photos often have similar values for:  
-- `DateTimeOriginal` (EXIF)  
-- `FileModifyDate` (filesystem)  
+### **3. Compare `DateTimeOriginal` with Filesystem Timestamp**
+Real photos often have similar values for:
+- `DateTimeOriginal` (EXIF)
+- `FileModifyDate` (filesystem)
 
-**Command to Check Discrepancies** (≥1 hour difference):  
-```bash  
-exiftool -q -r -if '  
-    $datetimeoriginal &&  
-    (($filemodifydate - $datetimeoriginal) > 3600 ||  
-    ($datetimeoriginal - $filemodifydate) > 3600  
-' /path/to/folder  
-```  
+**Command to Check Discrepancies** (≥1 hour difference):
+```bash
+exiftool -q -r -if '
+    $datetimeoriginal &&
+    (($filemodifydate - $datetimeoriginal) > 3600 ||
+    ($datetimeoriginal - $filemodifydate) > 3600
+' /path/to/folder
+```
 
-### **4. Check for Missing GPS Data**  
-Original photos often include GPS coordinates:  
-```bash  
-exiftool -q -if 'not defined $gpslatitude' -r /path/to/folder  
-```  
-
----
-
-## **Example: Automated Classification Script**  
-```bash  
-#!/bin/bash  
-
-# Real Photos  
-exiftool -q -r -ext jpg -ext heic \  
-    -if '$make && $model && $gpslatitude && $datetimeoriginal' \  
-    -p "Real Photo: $directory/$filename" /path/to/folder  
-
-# WhatsApp Photos  
-exiftool -q -r -ext jpg -ext heic \  
-    -if 'not defined $make && not defined $model && not defined $gpslatitude' \  
-    -p "Suspicious (WhatsApp?): $directory/$filename" /path/to/folder  
-```  
+### **4. Check for Missing GPS Data**
+Original photos often include GPS coordinates:
+```bash
+exiftool -q -if 'not defined $gpslatitude' -r /path/to/folder
+```
 
 ---
 
-## **Summary**  
+## **Example: Automated Classification Script**
+```bash
+#!/bin/bash
+
+# Real Photos
+exiftool -q -r -ext jpg -ext heic \
+    -if '$make && $model && $gpslatitude && $datetimeoriginal' \
+    -p "Real Photo: $directory/$filename" /path/to/folder
+
+# WhatsApp Photos
+exiftool -q -r -ext jpg -ext heic \
+    -if 'not defined $make && not defined $model && not defined $gpslatitude' \
+    -p "Suspicious (WhatsApp?): $directory/$filename" /path/to/folder
+```
+
+---
+
+## **Summary**
 | **Feature**               | **Real Photos**                | **WhatsApp Photos**           |  
 |---------------------------|---------------------------------|--------------------------------|  
 | `DateTimeOriginal`        | Actual capture date            | Timestamp of sending/saving   |  
