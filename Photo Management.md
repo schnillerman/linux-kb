@@ -36,7 +36,7 @@ for keyword in "${temp_keywords[@]}"; do
 done
 
 ###############################################################################
-#                         DIRECTORY VERIFICATION                             #
+#                         DIRECTORY VERIFICATION                              #
 ###############################################################################
 
 # Validate source directory exists before proceeding
@@ -157,7 +157,7 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
         # Handle duplicate files based on user preference
         if [ "$handle_duplicates" == "yes" ]; then
             #################################################################
-            #                    DUPLICATE MOVING LOGIC                      #
+            #                    DUPLICATE MOVING LOGIC                     #
             #################################################################
             
             # Move existing target file to duplicates directory
@@ -171,7 +171,7 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
             mv -v "$file" "$source_duplicate_path"
         else
             #################################################################
-            #                  IN-PLACE DUPLICATE HANDLING                   #
+            #                  IN-PLACE DUPLICATE HANDLING                  #
             #################################################################
             
             if [ "$target_category" == "UUID" ]; then
@@ -233,12 +233,12 @@ done
 
 ## Regex Patterns Explained
 
-| Pattern          | Purpose                                      | Example Matches              |
-|------------------|----------------------------------------------|-------------------------------|
-| `whatsapp_pattern` | WhatsApp media files                       | IMG-20231015-WA0001.jpg       |
-| `uuid_pattern`     | UUIDv4 formatted files                     | 550e8400-e29b-41d4-a716-446655440000.jpg |
-| `camera_pattern`   | Camera-generated files                     | DSC_1234, GOPR0001, DJI_1234 |
-| `snapseed_pattern` | Snapseed-edited files                      | sunset_snapseed_edit.jpg      |
+| Pattern            | Purpose                | Example Matches                          |
+|--------------------|------------------------|------------------------------------------|
+| `whatsapp_pattern` | WhatsApp media files   | IMG-20231015-WA0001.jpg                  |
+| `uuid_pattern`     | UUIDv4 formatted files | 550e8400-e29b-41d4-a716-446655440000.jpg |
+| `camera_pattern`   | Camera-generated files | DSC_1234, GOPR0001, DJI_1234             |
+| `snapseed_pattern` | Snapseed-edited files  | sunset_snapseed_edit.jpg                 |
 
 This script provides a sophisticated way to organize mixed media files while preserving metadata and directory structures.
 
