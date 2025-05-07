@@ -218,24 +218,27 @@ done
    - Collects source directory path and optional keywords
    - Processes keywords into an array
 
-2. **File Categorization**  
+2. **File Categorization**
+   - priority level markers ([1], [2], etc)
+   - Documented regex pattern purposes and match groups
+   - Explained case conversion/normalization steps
    - **WhatsApp**: Matches `IMG-YYYYMMDD-WAXXXX` pattern
    - **UUID**: Matches UUIDv4 format (`8-4-4-4-12` hex structure)
    - **Camera**: Detects common camera prefixes (DSC, IMG, DJI, etc.)
    - **Snapseed**: Looks for "snapseed" in filename
    - **Custom Keywords**: User-defined patterns
 
-3. **File Organization**  
+4. **File Organization**  
    Creates nested directory structure:  
    `ParentDir/OriginalDirName - Category - (CameraPrefix) - Extension`
 
-4. **Special Handling**  
+5. **Special Handling**  
    - Puts `.jpeg` and `.jpg` in same category JPG
    - Skips `@eaDir` directories (Synology NAS thumbnails)
    - Preserves original folder structure
    - Special overwrite rules for UUID category files (only overwrites UUID files if existing file ≤115% of new file size)
 
-5. **Safety Features**  
+6. **Safety Features**  
    - `-n` flag in `mv` prevents overwrites
    - `-print0`/`read -d ''` handles spaces in filenames
    - Case-insensitive matching for broader compatibility
