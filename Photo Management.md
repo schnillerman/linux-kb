@@ -7,36 +7,49 @@ The following script organizes files in a source directory into different direct
 #                            USER INPUT SECTION                               #
 ###############################################################################
 
-# Prompt user for source directory and resolve to absolute path
+# Get source directory path from user input and resolve to absolute path
 read -p "Enter the path to the source directory: " source_dir
-source_dir=$(realpath "$source_dir")
+source_dir=$(realpath "$source_dir")  # Convert to absolute path for consistency
 
-# Duplicate handling configuration
-# - Determines whether duplicates get moved to ../Duplicates or handled in-place
+# Configure duplicate handling: [y] moves duplicates out, [n] handles in-place
 read -p "Move duplicates to ../Duplicates? [y/N]: " move_duplicates
-handle_duplicates="no"
-[[ "$move_duplicates" =~ [yY] ]] && handle_duplicates="yes"
+handle_duplicates="no"  # Default to in-place handling
+[[ "$move_duplicates" =~ [yY] ]] && handle_duplicates="yes"  # Set flag if Yes
 
-# Custom keyword configuration
-# - Accepts comma-separated list of additional categories
-# - Processes input to create clean array of keywords
+# Get user-defined keywords for custom categorization
 echo -e "\nEnter additional keywords (comma-separated, spaces allowed):"
 echo "Example: Lightroom Edit,HDR"
 read -p "Keywords: " keywords_input
 
-# Process keywords into normalized array:
-# 1. Split on commas
-# 2. Trim whitespace
-# 3. Filter empty entries
+# Process keywords into clean array:
+# 1. Split comma-separated input
+# 2. Trim whitespace from each item
+# 3. Remove empty entries
 IFS=',' read -ra temp_keywords <<< "$keywords_input"
 declare -a keywords=()
 for keyword in "${temp_keywords[@]}"; do
-    keyword=$(echo "$keyword" | xargs)  # Trim whitespace
-    [ -n "$keyword" ] && keywords+=("$keyword")
+    keyword=$(echo "$keyword" | xargs)  # xargs trims whitespace
+    [ -n "$keyword" ] && keywords+=("$keyword")  # Add non-empty entries
+done
+
+# Get extensions for special categorization
+echo -e "\nEnter extensions to categorize (comma-separated, without dots):"
+echo "Example: PNG,JPG,MOV"
+read -p "Extensions: " extensions_input
+
+# Process extensions into normalized array:
+# 1. Split comma-separated input
+# 2. Trim whitespace and convert to uppercase
+# 3. Remove empty entries
+IFS=',' read -ra temp_extensions <<< "$extensions_input"
+declare -a extensions=()
+for ext in "${temp_extensions[@]}"; do
+    ext=$(echo "$ext" | xargs | tr '[:lower:]' '[:upper:]')  # Normalize case
+    [ -n "$ext" ] && extensions+=("$ext")  # Add non-empty entries
 done
 
 ###############################################################################
-#                         DIRECTORY VERIFICATION                              #
+#                         DIRECTORY VERIFICATION                             #
 ###############################################################################
 
 # Validate source directory exists before proceeding
@@ -44,10 +57,11 @@ if [ ! -d "$source_dir" ]; then
     echo "Error: Directory '$source_dir' does not exist!"
     exit 1
 else
-    # Display processing configuration
+    # Display processing configuration for user verification
     echo -e "\nProcessing directory: $source_dir"
-    echo "Standard categories: WhatsApp, UUID, Cam, Snapseed"
-    echo "Active keywords: ${keywords[*]}"
+    echo "Standard categories: WhatsApp, UUID, Cam, DSC, Snapseed"
+    echo "Active keywords: ${keywords[*]}"         # Show parsed keywords
+    echo "Active extensions: ${extensions[*]}"     # Show parsed extensions
 fi
 
 ###############################################################################
@@ -55,99 +69,97 @@ fi
 ###############################################################################
 
 # Path configuration
-parent_dir=$(dirname "$source_dir")                # Parent of source directory
-original_dir=$(basename "$source_dir")             # Name of source directory
-duplicates_root="${parent_dir}/Duplicates"         # Central duplicates location
+parent_dir=$(dirname "$source_dir")         # Parent directory of source
+original_dir=$(basename "$source_dir")      # Name of source directory
+duplicates_root="${parent_dir}/Duplicates"  # Central duplicates location
 
-# File pattern definitions:
-# WhatsApp: Matches WAXXXX generated filenames
-whatsapp_pattern="^.*(IMG|VID)-[0-9]{8}-WA[0-9]{4}.*\.(jpg|jpeg|png|mp4|mov)$"
-
-# UUID: Matches standard 8-4-4-4-12 hexadecimal format
-uuid_pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*\..+$"
-
-# Camera: Matches common camera/vendor filename prefixes
-camera_pattern=".*(_?)(dsc|img|pxl|dji|gopr|movi|dscf|ndvr|pano|rsc)(_?)[0-9]+.*"
-
-# Snapseed: Simple pattern match for edited files
-snapseed_pattern="snapseed"
+# File pattern definitions (all patterns use case-insensitive matching)
+whatsapp_pattern="^.*(IMG|VID)-[0-9]{8}-WA[0-9]{4}.*\.(jpg|jpeg|png|mp4|mov)$"  # WhatsApp auto-generated files
+uuid_pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*\..+$"  # Standard UUID format
+camera_pattern=".*(_?)(dsc|img|pxl|dji|gopr|movi|dscf|ndvr|pano|rsc)(_?)[0-9]+.*"  # Camera/vendor filename patterns
+snapseed_pattern="snapseed"  # Simple pattern for Snapseed edits
 
 ###############################################################################
 #                          MAIN PROCESSING LOOP                               #
 ###############################################################################
 
-# Process all files in source directory recursively:
-# - Exclude special "@eadir" directories
-# - Handle spaces in filenames via null-delimited output
+# Process files recursively while handling spaces in filenames:
+# - Prune special @eadir directories
+# - Use null delimiter for safe filename handling
 find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | while IFS= read -r -d '' file; do
 
-    # Extract relative path components
-    relative_path="${file#$source_dir/}"  # Path relative to source directory
-    filename=$(basename "$relative_path") # Filename with extension
-    filename_lower="${filename,,}"        # Lowercase version for case-insensitive matching
+    # Extract path components
+    relative_path="${file#$source_dir/}"   # Path relative to source root
+    filename=$(basename "$relative_path")  # Filename with extension
+    filename_lower="${filename,,}"         # Lowercase for case-insensitive checks
     extension=$(echo "${filename##*.}" | tr '[:lower:]' '[:upper:]')  # Uppercase extension
-
-    # Normalize JPEG extensions to consistent format
-    [[ "$extension" == "JPEG" ]] && extension="JPG"
     
-    # Initialize target categorization variables
+    # Normalize JPEG extensions to JPG
+    [[ "$extension" == "JPEG" ]] && extension="JPG"
+
+    # Initialize target category
     target_category=""
-    camera_prefix=""
-    target_extension="$extension"
 
     ###########################################################################
     #                      CATEGORY DETECTION LOGIC                           #
     ###########################################################################
+    # Priority order: Keywords > Extensions > Pre-defined Categories > Extension fallback
 
-    # Detection priority order:
-    # 1. WhatsApp files
-    # 2. UUID files
-    # 3. Camera files
-    # 4. Snapseed files
-    # 5. User-defined keywords
-    
-    if [[ "$filename_lower" =~ $whatsapp_pattern ]]; then
-        target_category="WhatsApp"
-    elif [[ "$filename_lower" =~ $uuid_pattern ]]; then
-        target_category="UUID"
-    elif [[ "$filename_lower" =~ $camera_pattern ]]; then
-        target_category="Cam"
-        # Extract camera prefix (e.g., DSC, IMG) for subcategorization
-        camera_prefix=$(echo "${BASH_REMATCH[2]}" | tr '[:lower:]' '[:upper:]')
-    elif [[ "$filename_lower" == *"$snapseed_pattern"* ]]; then
-        target_category="Snapseed"
-    else
-        # Check against user-defined keywords
-        for keyword in "${keywords[@]}"; do
-            if [[ "${filename_lower}" == *"${keyword,,}"* ]]; then
-                target_category="$keyword"
-                break  # Stop at first match
-            fi
-        done
+    # [1] Check user-defined keywords first (highest priority)
+    for keyword in "${keywords[@]}"; do
+        # Case-insensitive substring match
+        if [[ "${filename_lower}" == *"${keyword,,}"* ]]; then
+            target_category="$keyword"
+            break  # Stop at first match
+        fi
+    done
+
+    # [2] Check extension-based categorization if no keyword match
+    if [ -z "$target_category" ]; then
+        # Check if extension is in user-specified list
+        if [[ " ${extensions[*]} " =~ " ${extension} " ]]; then
+            target_category="$extension"
+        fi
     fi
+
+    # [3] Check pre-defined categories if no previous matches
+    if [ -z "$target_category" ]; then
+        # WhatsApp detection
+        if [[ "$filename_lower" =~ $whatsapp_pattern ]]; then
+            target_category="WhatsApp"
+        
+        # UUID detection
+        elif [[ "$filename_lower" =~ $uuid_pattern ]]; then
+            target_category="UUID"
+        
+        # Camera/DSC detection
+        elif [[ "$filename_lower" =~ $camera_pattern ]]; then
+            # Extract camera prefix from regex match group 2
+            camera_prefix=$(echo "${BASH_REMATCH[2]}" | tr '[:lower:]' '[:upper:]')
+            # Separate DSC files into their own category
+            target_category=$([[ "$camera_prefix" == "DSC" ]] && echo "DSC" || echo "Cam")
+        
+        # Snapseed detection
+        elif [[ "$filename_lower" == *"$snapseed_pattern"* ]]; then
+            target_category="Snapseed"
+        fi
+    fi
+
+    # [4] Final fallback: Use file extension if no other matches
+    [ -z "$target_category" ] && target_category="$extension"
 
     ###########################################################################
     #                       TARGET PATH CONSTRUCTION                          #
     ###########################################################################
 
-    # Build destination path based on detected category:
-    # Format: ParentDir/SourceDirName - Category - Extension/OriginalPath
+    # Build target directory path: ParentDir/SourceDirName - Category
+    target_dir="${parent_dir}/${original_dir} - ${target_category}"
     
-    if [ -n "$target_category" ]; then
-        # Special handling for camera files with vendor prefixes
-        if [ "$target_category" == "Cam" ] && [ -n "$camera_prefix" ]; then
-            target_dir="${parent_dir}/${original_dir} - ${target_category} - ${camera_prefix} - ${target_extension}"
-        else
-            target_dir="${parent_dir}/${original_dir} - ${target_category} - ${target_extension}"
-        fi
-    else
-        # Fallback for uncategorized files
-        target_dir="${parent_dir}/${original_dir} - ${target_extension}"
-    fi
-
     # Construct full target path preserving original directory structure
     target_path="${target_dir}/${relative_path}"
-    mkdir -p "$(dirname "$target_path")"  # Create necessary directories
+    
+    # Create directory hierarchy if needed (-p creates parents as required)
+    mkdir -p "$(dirname "$target_path")"
 
     ###########################################################################
     #                          FILE HANDLING LOGIC                            #
@@ -156,43 +168,40 @@ find "$source_dir" -type d \( -iname "*@eadir*" \) -prune -o -type f -print0 | w
     if [ -f "$target_path" ]; then
         # Handle duplicate files based on user preference
         if [ "$handle_duplicates" == "yes" ]; then
-            #################################################################
-            #                    DUPLICATE MOVING LOGIC                     #
-            #################################################################
+            # Duplicate moving mode: Move both existing and new file to duplicates directory
             
-            # Move existing target file to duplicates directory
+            # Build path for existing duplicate in target location
             target_duplicate_path="${duplicates_root}/${target_dir#${parent_dir}/}/${relative_path}"
             mkdir -p "$(dirname "$target_duplicate_path")"
-            mv -v "$target_path" "$target_duplicate_path"
+            mv -v "$target_path" "$target_duplicate_path"  # Move existing file
             
-            # Move source duplicate to duplicates directory
+            # Build path for source duplicate
             source_duplicate_path="${duplicates_root}/${original_dir}/${relative_path}"
             mkdir -p "$(dirname "$source_duplicate_path")"
-            mv -v "$file" "$source_duplicate_path"
+            mv -v "$file" "$source_duplicate_path"  # Move current file
+        
         else
-            #################################################################
-            #                  IN-PLACE DUPLICATE HANDLING                  #
-            #################################################################
-            
+            # In-place handling: Special logic for UUID files
             if [ "$target_category" == "UUID" ]; then
-                # Special handling for UUID files: size-based overwrite
-                current_size=$(stat -c %s "$file")       # Current file size
-                existing_size=$(stat -c %s "$target_path")  # Existing file size
+                # UUID files: Overwrite only if size difference ≤15%
                 
-                # Calculate size difference percentage relative to existing file
+                current_size=$(stat -c %s "$file")        # Get current file size
+                existing_size=$(stat -c %s "$target_path")  # Get existing file size
+                
+                # Calculate percentage difference (relative to existing file)
                 size_diff=$(( (current_size - existing_size) * 100 / existing_size ))
                 absolute_diff=${size_diff#-}  # Get absolute value
-
+                
                 if [ "$absolute_diff" -le 15 ]; then
-                    # Overwrite if difference ≤15%
+                    # Overwrite if difference is within threshold
                     echo "Overwriting UUID file (${absolute_diff}% size difference): $relative_path"
                     mv -vf "$file" "$target_path"
                 else
-                    # Preserve existing if difference >15%
+                    # Preserve existing file if difference exceeds threshold
                     echo "Skipping UUID duplicate (${absolute_diff}% size difference >15%): $relative_path"
                 fi
             else
-                # Standard non-UUID duplicate handling
+                # Non-UUID files: Skip duplicates
                 echo "Skipping duplicate: $relative_path"
             fi
         fi
