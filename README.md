@@ -1,6 +1,5 @@
 # General
 All things Linux for absolute beginners
 ## Directory Structure
-[Explanation of Linux' directory structure:](https://www.howtogeek.com/117435/htg-explains-the-linux-directory-structure-explained/):
-See here.
+See [here](https://github.com/schnillerman/linux-kb/blob/main/directory%20structure.md).
 # [SSH](https://github.com/schnillerman/linux-kb/blob/main/SSH.md)
